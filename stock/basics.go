@@ -66,6 +66,7 @@ type (
 		TimeToMarket     string
 	}
 
+	//Report 业绩报表
 	/*
 	   code,代码
 	   name,名称
@@ -80,17 +81,17 @@ type (
 	   report_date,发布日期
 	*/
 	Report struct {
-		Code        string
-		Name        string
-		Eps         string
-		Eps_yoy     string
-		Bvps        string
-		Roe         string
-		Epcf        string
-		NetProfits  string
-		ProfitsYoy  string
-		Distrib     string
-		Report_date string
+		Code       string
+		Name       string
+		Eps        string
+		EpsYoy     string
+		Bvps       string
+		Roe        string
+		Epcf       string
+		NetProfits string
+		ProfitsYoy string
+		Distrib    string
+		ReportDate string
 	}
 	//Profit 利润报表
 	/*
@@ -154,9 +155,51 @@ func (b *BasicsMux) List() (data []Basics, err error) {
 	return
 }
 
-//Report 获取报表基本信息
-func (b *BasicsMux) Report(year, quarter int) (data []Profit, err error) {
-	return nil, nil
+//Report 获取业绩报表基本信息
+func (b *BasicsMux) Report(year, quarter int) (data []Report, err error) {
+	pageno := 1
+	data = []Report{}
+	var recall func(year, quarter, pageno int, data *[]Report) error
+
+	recall = func(year, quarter, pageno int, data *[]Report) (err error) {
+		url := fmt.Sprintf(b.reporturl, "mainindex", year, quarter, pageno)
+
+		bts, err := httpget(url)
+		if err != nil {
+			return err
+		}
+		enc := mahonia.NewDecoder("gbk")
+		doc, err := goquery.NewDocumentFromReader(enc.NewReader(bytes.NewReader(bts)))
+		if err != nil {
+			return err
+		}
+		//解析HTML
+		doc.Find("#dataTable tbody tr").Each(func(i int, q *goquery.Selection) {
+			report := Report{
+				Code:       q.Find("td").Eq(0).Find("a").Text(),
+				Name:       q.Find("td").Eq(1).Find("a").Text(),
+				Eps:        q.Find("td").Eq(2).Text(),
+				EpsYoy:     q.Find("td").Eq(3).Text(),
+				Bvps:       q.Find("td").Eq(4).Text(),
+				Roe:        q.Find("td").Eq(5).Text(),
+				Epcf:       q.Find("td").Eq(6).Text(),
+				NetProfits: q.Find("td").Eq(7).Text(),
+				ProfitsYoy: q.Find("td").Eq(8).Text(),
+				Distrib:    q.Find("td").Eq(9).Text(),
+				ReportDate: q.Find("td").Eq(10).Text(),
+			}
+			*data = append(*data, report)
+		})
+
+		if _, ok := doc.Find(".pages a").Last().Attr("onclick"); ok {
+			pageno++
+			recall(year, quarter, pageno, data)
+		}
+		return
+	}
+
+	recall(year, quarter, pageno, &data)
+	return
 }
 
 //Profit 利润表
@@ -178,7 +221,6 @@ func (b *BasicsMux) Profit(year, quarter int) (data []Profit, err error) {
 			return err
 		}
 		//解析HTML
-		fmt.Println(doc.Find("#dataTable tbody tr").Length())
 		doc.Find("#dataTable tbody tr").Each(func(i int, q *goquery.Selection) {
 			profit := Profit{
 				Code:            q.Find("td").Eq(0).Find("a").Text(),
@@ -193,9 +235,7 @@ func (b *BasicsMux) Profit(year, quarter int) (data []Profit, err error) {
 			}
 			*data = append(*data, profit)
 		})
-		if pageno == 3 {
-			return
-		}
+
 		if _, ok := doc.Find(".pages a").Last().Attr("onclick"); ok {
 			pageno++
 			recall(year, quarter, pageno, data)

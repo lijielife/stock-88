@@ -16,6 +16,22 @@ func TestList(t *testing.T) {
 	t.Log(list[0])
 }
 
+func TestReport(t *testing.T) {
+	list, err := Basicser.Report(2014, 1)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(list) <= 0 {
+		t.Fatal("报表为空")
+	}
+	if list[0].Code == "" {
+		t.Fatal("获取的报表数据错误")
+	}
+	if len(list) <= 1000 {
+		t.Fatal("数据量不足，查询错误")
+	}
+}
+
 func TestProfit(t *testing.T) {
 	list, err := Basicser.Profit(2014, 1)
 	if err != nil {
