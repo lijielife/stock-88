@@ -28,6 +28,8 @@ type (
 		reporturl string
 		listurl   string
 	}
+	//DataProc 数据处理类型
+	DataProc func(*goquery.Document)
 	//Basics 基本信息
 	/*
 		code,代码
@@ -66,7 +68,7 @@ type (
 		TimeToMarket     string
 	}
 
-	//Report 业绩报表
+	//Report 业绩数据
 	/*
 	   code,代码
 	   name,名称
@@ -93,7 +95,7 @@ type (
 		Distrib    string
 		ReportDate string
 	}
-	//Profit 利润报表
+	//Profit 利润数据
 	/*
 		code,代码
 		name,名称
@@ -116,11 +118,93 @@ type (
 		BusinessIncome  string
 		Bips            string
 	}
+	//Operation 运营能力数据
+	/*
+		code,代码
+		name,名称
+		arturnover,应收账款周转率(次)
+		arturndays,应收账款周转天数(天)
+		inventory_turnover,存货周转率(次)
+		inventory_days,存货周转天数(天)
+		currentasset_turnover,流动资产周转率(次)
+		currentasset_days,流动资产周转天数(天)
+	*/
+	Operation struct {
+		Code                 string
+		Name                 string
+		Arturnover           string
+		Arturndays           string
+		InventoryTurnover    string
+		InventoryDays        string
+		CurrentassetTurnover string
+		CurrentassetDays     string
+	}
+	//Grow 成长能力数据
+	/*
+		code,代码
+		name,名称
+		mbrg,主营业务收入增长率(%)
+		nprg,净利润增长率(%)
+		nav,净资产增长率
+		targ,总资产增长率
+		epsg,每股收益增长率
+		seg,股东权益增长率
+	*/
+	Grow struct {
+		Code string
+		Name string
+		Mbrg string
+		Nprg string
+		Nav  string
+		Targ string
+		Epsg string
+		Seg  string
+	}
+	//Debtpay  偿债能力数据
+	/*
+		code,代码
+		name,名称
+		currentratio,流动比率
+		quickratio,速动比率
+		cashratio,现金比率
+		icratio,利息支付倍数
+		sheqratio,股东权益比率
+		adratio,股东权益增长率
+	*/
+	Debtpay struct {
+		Code         string
+		Name         string
+		Currentratio string
+		Quickratio   string
+		Cashratio    string
+		Icratio      string
+		Sheqratio    string
+		Adratio      string
+	}
+
+	//Cashflow 现金流量数据
+	/*
+		code,代码
+		name,名称
+		cf_sales,经营现金净流量对销售收入比率
+		rateofreturn,资产的经营现金流量回报率
+		cf_nm,经营现金净流量与净利润的比率
+		cf_liabilities,经营现金净流量对负债比率
+		cashflowratio,现金流量比率
+	*/
+	Cashflow struct {
+		Code          string
+		Name          string
+		CfSales       string
+		Rateofreturn  string
+		CfNm          string
+		CfLiabilities string
+		Cashflowratio string
+	}
 )
 
-//List 获取列表及基本信息
+//List 获取沪深上市公司基本情况
 func (b *BasicsMux) List() (data []Basics, err error) {
-
 	bts, err := httpget(b.listurl)
 	if err != nil {
 		return
@@ -155,24 +239,10 @@ func (b *BasicsMux) List() (data []Basics, err error) {
 	return
 }
 
-//Report 获取业绩报表基本信息
-func (b *BasicsMux) Report(year, quarter int) (data []Report, err error) {
-	pageno := 1
-	data = []Report{}
-	var recall func(year, quarter, pageno int, data *[]Report) error
-
-	recall = func(year, quarter, pageno int, data *[]Report) (err error) {
-		url := fmt.Sprintf(b.reporturl, "mainindex", year, quarter, pageno)
-
-		bts, err := httpget(url)
-		if err != nil {
-			return err
-		}
-		enc := mahonia.NewDecoder("gbk")
-		doc, err := goquery.NewDocumentFromReader(enc.NewReader(bytes.NewReader(bts)))
-		if err != nil {
-			return err
-		}
+//Report 获取业绩报表数据
+func (b *BasicsMux) Report(year, quarter int) ([]Report, error) {
+	data := []Report{}
+	err := b.report(year, quarter, "profit", func(doc *goquery.Document) {
 		//解析HTML
 		doc.Find("#dataTable tbody tr").Each(func(i int, q *goquery.Selection) {
 			report := Report{
@@ -188,38 +258,16 @@ func (b *BasicsMux) Report(year, quarter int) (data []Report, err error) {
 				Distrib:    q.Find("td").Eq(9).Text(),
 				ReportDate: q.Find("td").Eq(10).Text(),
 			}
-			*data = append(*data, report)
+			data = append(data, report)
 		})
-
-		if _, ok := doc.Find(".pages a").Last().Attr("onclick"); ok {
-			pageno++
-			recall(year, quarter, pageno, data)
-		}
-		return
-	}
-
-	recall(year, quarter, pageno, &data)
-	return
+	})
+	return data, err
 }
 
-//Profit 利润表
-func (b *BasicsMux) Profit(year, quarter int) (data []Profit, err error) {
-	pageno := 1
-	data = []Profit{}
-	var recall func(year, quarter, pageno int, data *[]Profit) error
-
-	recall = func(year, quarter, pageno int, data *[]Profit) (err error) {
-		url := fmt.Sprintf(b.reporturl, "profit", year, quarter, pageno)
-
-		bts, err := httpget(url)
-		if err != nil {
-			return err
-		}
-		enc := mahonia.NewDecoder("gbk")
-		doc, err := goquery.NewDocumentFromReader(enc.NewReader(bytes.NewReader(bts)))
-		if err != nil {
-			return err
-		}
+//Profit 获取盈利能力数据
+func (b *BasicsMux) Profit(year, quarter int) ([]Profit, error) {
+	data := []Profit{}
+	err := b.report(year, quarter, "profit", func(doc *goquery.Document) {
 		//解析HTML
 		doc.Find("#dataTable tbody tr").Each(func(i int, q *goquery.Selection) {
 			profit := Profit{
@@ -233,16 +281,122 @@ func (b *BasicsMux) Profit(year, quarter int) (data []Profit, err error) {
 				BusinessIncome:  q.Find("td").Eq(7).Text(),
 				Bips:            q.Find("td").Eq(8).Text(),
 			}
-			*data = append(*data, profit)
+			data = append(data, profit)
 		})
+	})
+	return data, err
+}
 
+//Operation 获取运营能力数据
+func (b *BasicsMux) Operation(year, quarter int) ([]Operation, error) {
+	data := []Operation{}
+	err := b.report(year, quarter, "operation", func(doc *goquery.Document) {
+		//解析HTML
+		doc.Find("#dataTable tbody tr").Each(func(i int, q *goquery.Selection) {
+			operation := Operation{
+				Code:                 q.Find("td").Eq(0).Find("a").Text(),
+				Name:                 q.Find("td").Eq(1).Find("a").Text(),
+				Arturnover:           q.Find("td").Eq(2).Text(),
+				Arturndays:           q.Find("td").Eq(3).Text(),
+				InventoryTurnover:    q.Find("td").Eq(4).Text(),
+				InventoryDays:        q.Find("td").Eq(5).Text(),
+				CurrentassetTurnover: q.Find("td").Eq(6).Text(),
+				CurrentassetDays:     q.Find("td").Eq(7).Text(),
+			}
+			data = append(data, operation)
+		})
+	})
+	return data, err
+}
+
+//Growth 获取成长能力数据
+func (b *BasicsMux) Growth(year, quarter int) ([]Grow, error) {
+	data := []Grow{}
+	err := b.report(year, quarter, "grow", func(doc *goquery.Document) {
+		//解析HTML
+		doc.Find("#dataTable tbody tr").Each(func(i int, q *goquery.Selection) {
+			grow := Grow{
+				Code: q.Find("td").Eq(0).Find("a").Text(),
+				Name: q.Find("td").Eq(1).Find("a").Text(),
+				Mbrg: q.Find("td").Eq(2).Text(),
+				Nprg: q.Find("td").Eq(3).Text(),
+				Nav:  q.Find("td").Eq(4).Text(),
+				Targ: q.Find("td").Eq(5).Text(),
+				Epsg: q.Find("td").Eq(6).Text(),
+				Seg:  q.Find("td").Eq(7).Text(),
+			}
+			data = append(data, grow)
+		})
+	})
+	return data, err
+}
+
+// Debtpaying 获取偿债能力数据
+func (b *BasicsMux) Debtpaying(year, quarter int) ([]Debtpay, error) {
+	data := []Debtpay{}
+	err := b.report(year, quarter, "grow", func(doc *goquery.Document) {
+		//解析HTML
+		doc.Find("#dataTable tbody tr").Each(func(i int, q *goquery.Selection) {
+			debtpay := Debtpay{
+				Code:         q.Find("td").Eq(0).Find("a").Text(),
+				Name:         q.Find("td").Eq(1).Find("a").Text(),
+				Currentratio: q.Find("td").Eq(2).Text(),
+				Quickratio:   q.Find("td").Eq(3).Text(),
+				Cashratio:    q.Find("td").Eq(4).Text(),
+				Icratio:      q.Find("td").Eq(5).Text(),
+				Sheqratio:    q.Find("td").Eq(6).Text(),
+				Adratio:      q.Find("td").Eq(7).Text(),
+			}
+			data = append(data, debtpay)
+		})
+	})
+	return data, err
+}
+
+// Cashflow 获取现金流量数据
+func (b *BasicsMux) Cashflow(year, quarter int) ([]Cashflow, error) {
+	data := []Cashflow{}
+	err := b.report(year, quarter, "grow", func(doc *goquery.Document) {
+		//解析HTML
+		doc.Find("#dataTable tbody tr").Each(func(i int, q *goquery.Selection) {
+			cashflow := Cashflow{
+				Code:          q.Find("td").Eq(0).Find("a").Text(),
+				Name:          q.Find("td").Eq(1).Find("a").Text(),
+				CfSales:       q.Find("td").Eq(2).Text(),
+				Rateofreturn:  q.Find("td").Eq(3).Text(),
+				CfNm:          q.Find("td").Eq(4).Text(),
+				CfLiabilities: q.Find("td").Eq(5).Text(),
+				Cashflowratio: q.Find("td").Eq(6).Text(),
+			}
+			data = append(data, cashflow)
+		})
+	})
+	return data, err
+}
+
+//递归获取每页数据
+func (b *BasicsMux) report(year, quarter int, page string, proc DataProc) error {
+	var recall func(year, quarter, pageno int) error
+
+	recall = func(year, quarter, pageno int) (err error) {
+		url := fmt.Sprintf(b.reporturl, page, year, quarter, pageno)
+
+		bts, err := httpget(url)
+		if err != nil {
+			return err
+		}
+		enc := mahonia.NewDecoder("gbk")
+		doc, err := goquery.NewDocumentFromReader(enc.NewReader(bytes.NewReader(bts)))
+		if err != nil {
+			return err
+		}
+		//解析HTML
+		proc(doc)
 		if _, ok := doc.Find(".pages a").Last().Attr("onclick"); ok {
 			pageno++
-			recall(year, quarter, pageno, data)
+			recall(year, quarter, pageno)
 		}
 		return
 	}
-
-	recall(year, quarter, pageno, &data)
-	return
+	return recall(year, quarter, 1)
 }
