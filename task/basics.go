@@ -41,15 +41,15 @@ func (t *BasicsTask) Run() {
 	if err != nil {
 		log.Panic(err)
 	}
-	//获取列表数据
-	t.List()
-	var first = 2000
+	var first = 2005
+
 	for first <= time.Now().Year() {
 		for i := 1; i <= 4; i++ {
 			t.Report(first, i)
 		}
 		first++
 	}
+	fmt.Println("抓取完毕")
 }
 
 //CreateTables 创建表结构
@@ -96,36 +96,25 @@ func (t *BasicsTask) Report(year, quarter int) {
 		return
 	}
 	fmt.Println("本次数据量：", len(list))
-	tmp := make([]stock.Report, 100)
-	for _, item := range list {
+	batch := map[string]stock.Report{}
+	for i, item := range list {
 		exists := t.exists(new(stock.Report), "code=? and name=? and year=? and quarter=?", item.Code, item.Name, year, quarter)
 		if !exists {
-			tmp = append(tmp, item)
-		} else {
-			fmt.Println("数据已存在", item)
+			batch[fmt.Sprintf("%s%s%d%d", item.Code, item.Name, item.Year, item.Quarter)] = item
 		}
-		if len(tmp) >= 100 {
+		if len(batch) >= 100 || i == len(list)-1 {
+			var tmp = []stock.Report{}
+			for _, i := range batch {
+				tmp = append(tmp, i)
+			}
 			affected, err := t.engine.Insert(&tmp)
 			if err != nil {
 				log.Println(err, tmp)
 			}
-			tmp = make([]stock.Report, 100)
+			batch = map[string]stock.Report{}
 			fmt.Println("report:", affected)
-		} else {
-			fmt.Println("当前批次累计：", len(tmp))
 		}
 	}
-	// affected, err := t.engine.Insert(&list)
-	// if err != nil {
-	// 	log.Println(err)
-	// }
-	// for _, item := range list {
-
-	// 	// err = t.InsertOrUpdate(new(stock.Report), item, "code=? and name=? and year=? and quarter=?", item.Code, item.Name, year, quarter)
-	// 	if err != nil {
-	// 		log.Println(err, item)
-	// 	}
-	// }
 }
 
 //Profit 同步股票利润数据到数据库

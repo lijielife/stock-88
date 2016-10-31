@@ -418,6 +418,7 @@ func (b *BasicsMux) report(year, quarter int, page string, proc DataProc) error 
 		proc(doc)
 		if _, ok := doc.Find(".pages a").Last().Attr("onclick"); ok {
 			pageno++
+			// time.Sleep(500 * time.Millisecond)
 			recall(year, quarter, pageno)
 		}
 		return
