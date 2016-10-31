@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"fmt"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/axgle/mahonia"
@@ -50,24 +51,23 @@ type (
 		timeToMarket,上市日期
 	*/
 	Basics struct {
-		Code             string
-		Name             string
-		Industry         string
-		Area             string
-		Pe               string
-		Outstanding      string
-		Totals           string
-		TotalAssets      string
-		LiquidAssets     string
-		FixedAssets      string
-		Reserved         string
-		ReservedPerShare string
-		Eps              string
-		Bvps             string
-		Pb               string
-		TimeToMarket     string
+		Code             string `xorm:"varchar(16) notnull pk"`
+		Name             string `xorm:"varchar(16) notnull pk"`
+		Industry         string `xorm:"varchar(16) notnull"`
+		Area             string `xorm:"varchar(16) notnull"`
+		Pe               string `xorm:"float"`
+		Outstanding      string `xorm:"double"`
+		Totals           string `xorm:"double"`
+		TotalAssets      string `xorm:"double"`
+		LiquidAssets     string `xorm:"double"`
+		FixedAssets      string `xorm:"double"`
+		Reserved         string `xorm:"double"`
+		ReservedPerShare string `xorm:"float"`
+		Eps              string `xorm:"float"`
+		Bvps             string `xorm:"float"`
+		Pb               string `xorm:"float"`
+		TimeToMarket     string `xorm:"date"`
 	}
-
 	//Report 业绩数据
 	/*
 	   code,代码
@@ -83,17 +83,18 @@ type (
 	   report_date,发布日期
 	*/
 	Report struct {
-		Code       string
-		Name       string
-		Eps        string
-		EpsYoy     string
-		Bvps       string
-		Roe        string
-		Epcf       string
-		NetProfits string
-		ProfitsYoy string
-		Distrib    string
-		ReportDate string
+		Code       string `xorm:"varchar(16) notnull pk"`
+		Name       string `xorm:"varchar(16) notnull"`
+		Eps        string `xorm:"float pk"`
+		EpsYoy     string `xorm:"float"`
+		Bvps       string `xorm:"float"`
+		Roe        string `xorm:"float"`
+		Epcf       string `xorm:"float"`
+		NetProfits string `xorm:"float"`
+		ProfitsYoy string `xorm:"double"`
+		Distrib    string `xorm:"varchar(32)"`
+		Year       int    `xorm:"pk"`
+		Quarter    int    `xorm:"pk"`
 	}
 	//Profit 利润数据
 	/*
@@ -117,6 +118,8 @@ type (
 		Eps             string
 		BusinessIncome  string
 		Bips            string
+		Year            int
+		Quarter         int
 	}
 	//Operation 运营能力数据
 	/*
@@ -138,6 +141,8 @@ type (
 		InventoryDays        string
 		CurrentassetTurnover string
 		CurrentassetDays     string
+		Year                 int
+		Quarter              int
 	}
 	//Grow 成长能力数据
 	/*
@@ -151,14 +156,16 @@ type (
 		seg,股东权益增长率
 	*/
 	Grow struct {
-		Code string
-		Name string
-		Mbrg string
-		Nprg string
-		Nav  string
-		Targ string
-		Epsg string
-		Seg  string
+		Code    string
+		Name    string
+		Mbrg    string
+		Nprg    string
+		Nav     string
+		Targ    string
+		Epsg    string
+		Seg     string
+		Year    int
+		Quarter int
 	}
 	//Debtpay  偿债能力数据
 	/*
@@ -180,6 +187,8 @@ type (
 		Icratio      string
 		Sheqratio    string
 		Adratio      string
+		Year         int
+		Quarter      int
 	}
 
 	//Cashflow 现金流量数据
@@ -200,6 +209,8 @@ type (
 		CfNm          string
 		CfLiabilities string
 		Cashflowratio string
+		Year          int
+		Quarter       int
 	}
 )
 
@@ -217,6 +228,7 @@ func (b *BasicsMux) List() (data []Basics, err error) {
 	}
 	data = make([]Basics, len(lines))
 	for i, line := range lines {
+
 		data[i] = Basics{
 			Code:             line[0],
 			Name:             line[1],
@@ -233,7 +245,7 @@ func (b *BasicsMux) List() (data []Basics, err error) {
 			Eps:              line[12],
 			Bvps:             line[13],
 			Pb:               line[14],
-			TimeToMarket:     line[15],
+			TimeToMarket:     b.parseDate(line[15]),
 		}
 	}
 	return
@@ -242,21 +254,23 @@ func (b *BasicsMux) List() (data []Basics, err error) {
 //Report 获取业绩报表数据
 func (b *BasicsMux) Report(year, quarter int) ([]Report, error) {
 	data := []Report{}
-	err := b.report(year, quarter, "profit", func(doc *goquery.Document) {
+	err := b.report(year, quarter, "report", func(doc *goquery.Document) {
 		//解析HTML
 		doc.Find("#dataTable tbody tr").Each(func(i int, q *goquery.Selection) {
+			tds := q.Find("td")
 			report := Report{
-				Code:       q.Find("td").Eq(0).Find("a").Text(),
-				Name:       q.Find("td").Eq(1).Find("a").Text(),
-				Eps:        q.Find("td").Eq(2).Text(),
-				EpsYoy:     q.Find("td").Eq(3).Text(),
-				Bvps:       q.Find("td").Eq(4).Text(),
-				Roe:        q.Find("td").Eq(5).Text(),
-				Epcf:       q.Find("td").Eq(6).Text(),
-				NetProfits: q.Find("td").Eq(7).Text(),
-				ProfitsYoy: q.Find("td").Eq(8).Text(),
-				Distrib:    q.Find("td").Eq(9).Text(),
-				ReportDate: q.Find("td").Eq(10).Text(),
+				Code:       tds.Eq(0).Find("a").Text(),
+				Name:       tds.Eq(1).Find("a").Text(),
+				Eps:        b.parseNumber(tds.Eq(2).Text()),
+				EpsYoy:     b.parseNumber(tds.Eq(3).Text()),
+				Bvps:       b.parseNumber(tds.Eq(4).Text()),
+				Roe:        b.parseNumber(tds.Eq(5).Text()),
+				Epcf:       b.parseNumber(tds.Eq(6).Text()),
+				NetProfits: b.parseNumber(tds.Eq(7).Text()),
+				ProfitsYoy: b.parseNumber(tds.Eq(8).Text()),
+				Distrib:    b.parseNumber(tds.Eq(9).Text()),
+				Year:       year,
+				Quarter:    quarter,
 			}
 			data = append(data, report)
 		})
@@ -280,6 +294,8 @@ func (b *BasicsMux) Profit(year, quarter int) ([]Profit, error) {
 				Eps:             q.Find("td").Eq(6).Text(),
 				BusinessIncome:  q.Find("td").Eq(7).Text(),
 				Bips:            q.Find("td").Eq(8).Text(),
+				Year:            year,
+				Quarter:         quarter,
 			}
 			data = append(data, profit)
 		})
@@ -302,6 +318,8 @@ func (b *BasicsMux) Operation(year, quarter int) ([]Operation, error) {
 				InventoryDays:        q.Find("td").Eq(5).Text(),
 				CurrentassetTurnover: q.Find("td").Eq(6).Text(),
 				CurrentassetDays:     q.Find("td").Eq(7).Text(),
+				Year:                 year,
+				Quarter:              quarter,
 			}
 			data = append(data, operation)
 		})
@@ -316,14 +334,16 @@ func (b *BasicsMux) Growth(year, quarter int) ([]Grow, error) {
 		//解析HTML
 		doc.Find("#dataTable tbody tr").Each(func(i int, q *goquery.Selection) {
 			grow := Grow{
-				Code: q.Find("td").Eq(0).Find("a").Text(),
-				Name: q.Find("td").Eq(1).Find("a").Text(),
-				Mbrg: q.Find("td").Eq(2).Text(),
-				Nprg: q.Find("td").Eq(3).Text(),
-				Nav:  q.Find("td").Eq(4).Text(),
-				Targ: q.Find("td").Eq(5).Text(),
-				Epsg: q.Find("td").Eq(6).Text(),
-				Seg:  q.Find("td").Eq(7).Text(),
+				Code:    q.Find("td").Eq(0).Find("a").Text(),
+				Name:    q.Find("td").Eq(1).Find("a").Text(),
+				Mbrg:    q.Find("td").Eq(2).Text(),
+				Nprg:    q.Find("td").Eq(3).Text(),
+				Nav:     q.Find("td").Eq(4).Text(),
+				Targ:    q.Find("td").Eq(5).Text(),
+				Epsg:    q.Find("td").Eq(6).Text(),
+				Seg:     q.Find("td").Eq(7).Text(),
+				Year:    year,
+				Quarter: quarter,
 			}
 			data = append(data, grow)
 		})
@@ -346,6 +366,8 @@ func (b *BasicsMux) Debtpaying(year, quarter int) ([]Debtpay, error) {
 				Icratio:      q.Find("td").Eq(5).Text(),
 				Sheqratio:    q.Find("td").Eq(6).Text(),
 				Adratio:      q.Find("td").Eq(7).Text(),
+				Year:         year,
+				Quarter:      quarter,
 			}
 			data = append(data, debtpay)
 		})
@@ -367,6 +389,8 @@ func (b *BasicsMux) Cashflow(year, quarter int) ([]Cashflow, error) {
 				CfNm:          q.Find("td").Eq(4).Text(),
 				CfLiabilities: q.Find("td").Eq(5).Text(),
 				Cashflowratio: q.Find("td").Eq(6).Text(),
+				Year:          year,
+				Quarter:       quarter,
 			}
 			data = append(data, cashflow)
 		})
@@ -399,4 +423,18 @@ func (b *BasicsMux) report(year, quarter int, page string, proc DataProc) error 
 		return
 	}
 	return recall(year, quarter, 1)
+}
+
+func (b *BasicsMux) parseNumber(val string) string {
+	if val == "--" || val == "" {
+		val = "0"
+	}
+	return val
+}
+
+func (b *BasicsMux) parseDate(val string) string {
+	if val == "0" || val == "" {
+		val = time.Now().Format("2006-01-02")
+	}
+	return val
 }
