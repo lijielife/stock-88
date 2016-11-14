@@ -1,74 +1,15 @@
 package main
 
 import (
-	"finance/task"
-	"time"
+	_ "finance/spiders"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/henrylee2cn/pholcus/exec"
 )
 
 func main() {
-
-	task.Start()
-	time.Sleep(30 * 60 * time.Second)
-	// data, err := stock.List()
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// for _, item := range data {
-	// 	fmt.Println(item)
-	// }
-	// engine, err := xorm.NewEngine("mysql", "root:123456@/finance?charset=utf8")
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// type (
-	// 	Basics struct {
-	// 		Code             string
-	// 		Name             string
-	// 		Industry         string
-	// 		Area             string
-	// 		Pe               string
-	// 		Outstanding      string
-	// 		Totals           string
-	// 		TotalAssets      string
-	// 		LiquidAssets     string
-	// 		FixedAssets      string
-	// 		Reserved         string
-	// 		ReservedPerShare string
-	// 		Eps              string
-	// 		Bvps             string
-	// 		Pb               string
-	// 		TimeToMarket     string
-	// 	}
-	// )
-
-	//000333,美的集团,家用电器,
-	//广东,9.05,634169.19,642493.44,
-	//16750275,11683425,2100000.5,
-	//1283200.25,2,1.478,8.61,3.11,19931112
-	// item := stock.Basics{
-	// 	Code:             "000333",
-	// 	Name:             "美的集团",
-	// 	Industry:         "家用电器",
-	// 	Area:             "广东",
-	// 	Pe:               "9.05",
-	// 	Outstanding:      "634169.19",
-	// 	Totals:           "642493.44",
-	// 	TotalAssets:      "16750275",
-	// 	LiquidAssets:     "11683425",
-	// 	FixedAssets:      "2100000.5",
-	// 	Reserved:         "1283200.25",
-	// 	ReservedPerShare: "2",
-	// 	Eps:              "1.478",
-	// 	Bvps:             "8.61",
-	// 	Pb:               "3.11",
-	// 	TimeToMarket:     "19931112",
-	// }
-	// id, err := engine.Insert(item)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// fmt.Println(id)
+	//https://xueqiu.com/stock/f10/finmainindex.json?symbol=SZ000001&page=1&size=100
+	// 设置运行时默认操作界面，并开始运行
+	// 运行软件前，可设置 -a_ui 参数为"web"、"gui"或"cmd"，指定本次运行的操作界面
+	// 其中"gui"仅支持Windows系统
+	exec.DefaultRun("web")
 }
