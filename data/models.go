@@ -1,5 +1,12 @@
 package data
 
+import (
+	"finance/config"
+
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-xorm/xorm"
+)
+
 type (
 	//Sofp 资产负债表
 	Sofp struct {
@@ -135,7 +142,7 @@ type (
 	//Incstatement 公司利润表
 	Incstatement struct {
 		Code              string  `xorm:"varchar(6) pk notnull"`
-		Enddate           string  `xorm:"date pk notnull"` //: "报表日期",
+		Reportdate        string  `xorm:"date pk notnull"` //: "报表日期",
 		Biztotinco        float64 `xorm:"decimal(20,2)"`   //: "一、营业总收入",
 		Bizinco           float64 `xorm:"decimal(20,2)"`   //: "营业收入",
 		Inteinco          float64 `xorm:"decimal(20,2)"`   //: "利息收入",
@@ -227,7 +234,7 @@ type (
 	//Cashflow 现金流量表
 	Cashflow struct {
 		Code               string  `xorm:"varchar(6) pk notnull"`
-		Enddate            string  `xorm:"date pk notnull"` //: "报表日期",
+		Reportdate         string  `xorm:"date pk notnull"` //: "报表日期",
 		Laborgetcash       float64 `xorm:"decimal(20,2)"`   //: "销售商品、提供劳务收到的现金",
 		Deponetr           float64 `xorm:"decimal(20,2)"`   //: "客户存款和同业存放款项净增加额",
 		Bankloannetincr    float64 `xorm:"decimal(20,2)"`   //: "向中央银行借款净增加额",
@@ -346,3 +353,17 @@ type (
 		Cashneti           float64 `xorm:"decimal(20,2)"`   //: "现金及现金等价物的净增加额 "
 	}
 )
+
+var (
+	//DB 数据访问对象
+	DB *xorm.Engine
+)
+
+func init() {
+	var err error
+	DB, err = xorm.NewEngine("mysql", config.MysqlConStr)
+	if err != nil {
+		panic(err)
+	}
+	DB.Sync2(new(Sofp), new(Incstatement), new(Cashflow))
+}
