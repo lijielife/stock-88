@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/henrylee2cn/pholcus/exec"
 
-	_ "finance/spiders"
+	_ "finance/xueqiu/spiders"
 )
 
 func main() {

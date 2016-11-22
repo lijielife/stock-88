@@ -1,10 +1,6 @@
 package main
 
 import (
-	"finance/model"
-
-	"net/http"
-
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/go-xorm/xorm"
 	"github.com/labstack/echo"
@@ -20,14 +16,7 @@ func main() {
 	}
 
 	e := echo.New()
-	e.GET("/", func(c echo.Context) error {
-		var assets []model.Asset
-		err := engine.Where("code=?", "000333").Find(&assets)
-		if err != nil {
-			panic(err)
-		}
-		return c.JSON(http.StatusOK, assets)
-	})
+
 	e.Static("static", "static")
 	e.Logger.Fatal(e.Start(":8080"))
 }
